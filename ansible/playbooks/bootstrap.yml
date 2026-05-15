@@ -1,0 +1,8 @@
+---
+- name: Bootstrap SRE platform host
+  hosts: sre_nodes
+  become: true
+  roles:
+    - docker
+    - security
+

@@ -1,0 +1,7 @@
+---
+- name: Configure monitoring components
+  hosts: monitoring
+  become: true
+  roles:
+    - monitoring
+

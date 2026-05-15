@@ -1,0 +1,13 @@
+---
+- name: Set secure sysctl defaults for Linux hosts
+  ansible.builtin.command: "sysctl -w {{ item.name }}={{ item.value }}"
+  changed_when: false
+  loop:
+    - { name: "net.ipv4.ip_forward", value: "1" }
+    - { name: "net.ipv4.tcp_syncookies", value: "1" }
+  when: ansible_os_family != "Windows"
+
+- name: Confirm firewall tooling when available
+  ansible.builtin.command: sh -c "command -v ufw || command -v firewall-cmd || true"
+  changed_when: false
+  when: ansible_os_family != "Windows"

@@ -1,0 +1,23 @@
+{
+  "name": "endterm-sre-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "services/auth-service",
+    "services/product-service",
+    "services/order-service",
+    "services/payment-service",
+    "services/notification-service",
+    "services/profile-service"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace frontend",
+    "install:all": "npm install --workspaces",
+    "compose:build": "docker compose build",
+    "compose:up": "docker compose up -d",
+    "compose:down": "docker compose down",
+    "k8s:apply": "kubectl apply -f kubernetes/",
+    "k8s:delete": "kubectl delete -f kubernetes/ --ignore-not-found"
+  }
+}

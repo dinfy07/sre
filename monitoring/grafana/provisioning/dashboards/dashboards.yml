@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: Endterm Dashboards
+    orgId: 1
+    folder: Endterm SRE
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
+

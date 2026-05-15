@@ -1,0 +1,12 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS platform_bootstrap (
+  id SERIAL PRIMARY KEY,
+  component TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO platform_bootstrap (component)
+VALUES ('postgres-primary')
+ON CONFLICT DO NOTHING;
+

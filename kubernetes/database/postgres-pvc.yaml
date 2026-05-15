@@ -1,0 +1,13 @@
+# StatefulSets allocate primary and replica storage through volumeClaimTemplates.
+# This extra claim provides a durable target for manual backups and restore drills.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-pvc
+  namespace: endterm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: services-config
+  namespace: endterm
+data:
+  NODE_ENV: production
+  PORT: "3000"
+  POSTGRES_HOST: postgres-primary
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: endterm
+

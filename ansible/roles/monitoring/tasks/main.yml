@@ -1,0 +1,23 @@
+---
+- name: Verify Prometheus configuration exists
+  ansible.builtin.stat:
+    path: "{{ project_root | default('/opt/endterm') }}/monitoring/prometheus/prometheus.yml"
+  register: prometheus_config
+
+- name: Fail when Prometheus configuration is missing
+  ansible.builtin.fail:
+    msg: Prometheus configuration is required before deploying monitoring.
+  when: not prometheus_config.stat.exists
+
+- name: Verify Grafana dashboards exist
+  ansible.builtin.find:
+    paths: "{{ project_root | default('/opt/endterm') }}/monitoring/grafana/dashboards"
+    patterns: "*.json"
+  register: grafana_dashboards
+
+- name: Require at least one Grafana dashboard
+  ansible.builtin.assert:
+    that:
+      - grafana_dashboards.matched | int > 0
+    fail_msg: At least one Grafana dashboard must exist.
+

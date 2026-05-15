@@ -1,0 +1,9 @@
+services:
+  order-service:
+    deploy:
+      replicas: 3
+
+  payment-service:
+    deploy:
+      replicas: 3
+

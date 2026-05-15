@@ -1,0 +1,39 @@
+groups:
+  - name: endterm-platform-alerts
+    rules:
+      - alert: ServiceDown
+        expr: probe_success == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service health probe failed"
+          description: "{{ $labels.instance }} has failed the uptime probe."
+
+      - alert: HighServiceErrorRate
+        expr: sum(rate({__name__=~".*_http_requests_total", status_code=~"5.."}[5m])) by (job) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 5xx rate"
+          description: "{{ $labels.job }} is returning elevated 5xx responses."
+
+      - alert: HighContainerCpu
+        expr: sum(rate(container_cpu_usage_seconds_total{name!=""}[5m])) by (name) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High container CPU usage"
+          description: "{{ $labels.name }} is using high CPU."
+
+      - alert: ContainerRestarting
+        expr: time() - container_start_time_seconds{name!=""} < 120
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "Recently restarted container"
+          description: "{{ $labels.name }} restarted recently."
+

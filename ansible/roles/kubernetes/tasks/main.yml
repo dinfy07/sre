@@ -1,0 +1,24 @@
+---
+- name: Check kubectl client
+  ansible.builtin.command: kubectl version --client=true
+  changed_when: false
+
+- name: Apply Kubernetes manifests recursively
+  ansible.builtin.command: kubectl apply -R -f kubernetes
+  args:
+    chdir: "{{ project_root | default('/opt/endterm') }}"
+  changed_when: true
+
+- name: Wait for core deployments
+  ansible.builtin.command: kubectl -n endterm rollout status deployment/{{ item }} --timeout=180s
+  loop:
+    - frontend
+    - api-gateway
+    - auth-service
+    - product-service
+    - order-service
+    - payment-service
+    - notification-service
+    - profile-service
+  changed_when: false
+

@@ -1,0 +1,24 @@
+---
+- name: Install Docker dependencies
+  ansible.builtin.package:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+  when: ansible_os_family != "Windows"
+
+- name: Ensure Docker service is enabled
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+  when: ansible_os_family != "Windows"
+
+- name: Check Docker version
+  ansible.builtin.command: docker --version
+  changed_when: false
+
+- name: Check Docker Compose version
+  ansible.builtin.command: docker compose version
+  changed_when: false
+

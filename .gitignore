@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+.terraform/
+*.tfstate
+*.tfstate.*
+*.retry
+*.log
+certs/
+data/
+.DS_Store
+

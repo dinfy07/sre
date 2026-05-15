@@ -1,0 +1,160 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: endterm
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    rule_files:
+      - /etc/prometheus/alert-rules.yml
+
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ["prometheus:9090"]
+
+      - job_name: node-services
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - auth-service:3000
+              - product-service:3000
+              - order-service:3000
+              - payment-service:3000
+              - notification-service:3000
+              - profile-service:3000
+
+      - job_name: postgres
+        static_configs:
+          - targets: ["postgres-exporter:9187"]
+
+      - job_name: nginx-gateway
+        static_configs:
+          - targets: ["nginx-exporter:9113"]
+
+      - job_name: cadvisor
+        static_configs:
+          - targets: ["cadvisor:8080"]
+
+      - job_name: uptime
+        metrics_path: /probe
+        params:
+          module: [http_2xx]
+        static_configs:
+          - targets:
+              - http://frontend/health
+              - http://api-gateway/health
+              - http://auth-service:3000/health
+              - http://product-service:3000/health
+              - http://order-service:3000/health
+              - http://payment-service:3000/health
+              - http://notification-service:3000/health
+              - http://profile-service:3000/health
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: blackbox-exporter:9115
+  alert-rules.yml: |
+    groups:
+      - name: endterm-platform-alerts
+        rules:
+          - alert: ServiceDown
+            expr: probe_success == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: Service health probe failed
+              description: "{{ $labels.instance }} has failed the uptime probe."
+          - alert: HighServiceErrorRate
+            expr: sum(rate({__name__=~".*_http_requests_total", status_code=~"5.."}[5m])) by (job) > 0.1
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: High HTTP 5xx rate
+              description: "{{ $labels.job }} is returning elevated 5xx responses."
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: endterm
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.55.1
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --web.enable-lifecycle
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+            - name: prometheus-config
+              mountPath: /etc/prometheus/alert-rules.yml
+              subPath: alert-rules.yml
+            - name: prometheus-data
+              mountPath: /prometheus
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 20
+            periodSeconds: 20
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: prometheus-config
+        - name: prometheus-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: endterm
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
+  type: NodePort
+

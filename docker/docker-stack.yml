@@ -1,0 +1,251 @@
+version: "3.9"
+
+services:
+  frontend:
+    image: endterm/frontend:latest
+    ports:
+      - "3000:80"
+    networks:
+      - public
+      - monitoring
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  api-gateway:
+    image: endterm/api-gateway:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - public
+      - backend
+      - monitoring
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  auth-service:
+    image: endterm/auth-service:latest
+    environment: &service-env
+      NODE_ENV: production
+      PORT: 3000
+      POSTGRES_HOST: postgres-primary
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: endterm
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      JWT_SECRET: change-me-in-production
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  product-service:
+    image: endterm/product-service:latest
+    environment: *service-env
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  order-service:
+    image: endterm/order-service:latest
+    environment: *service-env
+    networks:
+      - backend
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  payment-service:
+    image: endterm/payment-service:latest
+    environment: *service-env
+    networks:
+      - backend
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  notification-service:
+    image: endterm/notification-service:latest
+    environment: *service-env
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  profile-service:
+    image: endterm/profile-service:latest
+    environment: *service-env
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres-primary:
+    image: bitnami/postgresql:16
+    environment:
+      POSTGRESQL_REPLICATION_MODE: master
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_password
+      POSTGRESQL_USERNAME: app_user
+      POSTGRESQL_PASSWORD: app_password
+      POSTGRESQL_DATABASE: endterm
+      POSTGRESQL_POSTGRES_PASSWORD: app_password
+    volumes:
+      - postgres_primary_data:/bitnami/postgresql
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  postgres-replica:
+    image: bitnami/postgresql:16
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_password
+      POSTGRESQL_MASTER_HOST: postgres-primary
+      POSTGRESQL_MASTER_PORT_NUMBER: 5432
+      POSTGRESQL_USERNAME: app_user
+      POSTGRESQL_PASSWORD: app_password
+      POSTGRESQL_DATABASE: endterm
+      POSTGRESQL_POSTGRES_PASSWORD: app_password
+    volumes:
+      - postgres_replica_data:/bitnami/postgresql
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    environment:
+      DATA_SOURCE_NAME: postgresql://app_user:app_password@postgres-primary:5432/endterm?sslmode=disable
+    networks:
+      - backend
+      - monitoring
+    deploy:
+      replicas: 1
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - backend
+      - monitoring
+    deploy:
+      replicas: 1
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring
+    deploy:
+      replicas: 1
+
+networks:
+  public:
+    driver: overlay
+  backend:
+    driver: overlay
+    internal: true
+  monitoring:
+    driver: overlay
+
+volumes:
+  postgres_primary_data:
+  postgres_replica_data:
+  prometheus_data:
+  grafana_data:
+

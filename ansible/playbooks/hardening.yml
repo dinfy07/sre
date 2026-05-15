@@ -1,0 +1,7 @@
+---
+- name: Apply baseline host hardening
+  hosts: sre_nodes
+  become: true
+  roles:
+    - security
+

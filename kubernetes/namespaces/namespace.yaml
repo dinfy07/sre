@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: endterm
+  labels:
+    app.kubernetes.io/name: endterm-sre-platform
+
